@@ -23,7 +23,7 @@ jobs:
         run: npm run lint
       
       - name: Type check
-        run: npm run compile:test
+        run: npm run compile
       
       - name: Test
         run: npm test
