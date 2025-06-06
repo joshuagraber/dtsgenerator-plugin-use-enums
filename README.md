@@ -42,10 +42,10 @@ type EnumCasing =
   | 'pascal'
 ```
 
-| key                  | type                      | description                                                                                                | Default     |
-| -------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------- |
-| consistentEnumCasing | `EnumCasing \| undefined` | If passed, enforces consistent casing. If not passed, keys are SCREAMING_SNAKE and values are as they were | `undefined` |
-| useConstEnums        | `boolean`                 | Whether or not to use const enums                                                                          | `false`     |
+| key                  | type                      | description                                                                                           | Default     |
+| -------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------- | ----------- |
+| consistentEnumCasing | `EnumCasing \| undefined` | If passed, enforces consistent casing. If not passed, keys are PascalCase and values are as they were | `undefined` |
+| useConstEnums        | `boolean`                 | Whether or not to use const enums                                                                     | `false`     |
 
 
 - Example
