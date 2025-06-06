@@ -1,0 +1,11 @@
+# Deps
+node_modules
+
+# Build
+dist
+**/*.tsbuildinfo
+
+# Testing
+coverage
+test/*.js
+.nyc_output
