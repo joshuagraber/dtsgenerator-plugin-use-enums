@@ -1,0 +1,4 @@
+{
+  "consistentEnumCasing": "pascal",
+  "useConstEnums": true
+}
