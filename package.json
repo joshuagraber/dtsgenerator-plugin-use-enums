@@ -1,0 +1,66 @@
+{
+  "name": "dtsgenerator-plugin-use-enums",
+  "version": "0.1.0",
+  "description": "Convert string unions to enums",
+  "repository": "https://github.com/joshuagraber/dtsgenerator-plugin-use-enums.git",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist/{index*,package.json}", "package.json", "README"],
+  "scripts": {
+    "clean": "rimraf dist test/**/*.js *.tsbuildinfo",
+    "format": "prettier --write **/*.ts",
+    "lint": "eslint --fix *.ts **/*.ts",
+    "fix": "npm run format && npm run lint",
+    "build": "tsc -p .",
+    "do-test": "cross-env TS_NODE_FILES=true mocha --exit --require ts-node/register --colors test/*_test.ts",
+    "test": "npm run build && nyc npm run do-test",
+    "coverage": "nyc report --reporter=text-lcov | coveralls",
+    "test:update-snapshot": "UPDATE_SNAPSHOT=1 npm run do-test",
+    "prepare": "husky install"
+  },
+  "keywords": [
+    "dtsgenerator",
+    "dtsgenerator-plugin"
+  ],
+  "lint-staged": {
+    "src/*.ts": [
+      "prettier --write",
+      "eslint --fix"
+    ]
+  },
+  "peerDependencies": {
+    "dtsgenerator": "^3.19.2",
+    "tslib": "^2.8.1"
+  },
+  "devDependencies": {
+    "@eslint/compat": "^1.2.9",
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.28.0",
+    "@semantic-release/commit-analyzer": "^10.0.1",
+    "@semantic-release/github": "^8.0.7",
+    "@semantic-release/npm": "^10.0.3",
+    "@semantic-release/release-notes-generator": "^11.0.7",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.30",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "cross-env": "^7.0.3",
+    "dtsgenerator": "^3.19.2",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-import-resolver-typescript": "^4.4.3",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-prettier": "^5.4.1",
+    "eslint-plugin-sort-imports-es6-autofix": "^0.6.0",
+    "globals": "^16.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.0",
+    "mocha": "^11.5.0",
+    "nyc": "^17.1.0",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "semantic-release": "^21.0.7",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.8.1"
+  }
+}
