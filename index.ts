@@ -20,6 +20,7 @@ export type EnumCasing =
   /* Both key and value take pascal case of the value. 'foo bar' would generate `FooBar = 'FooBar'` */
   | 'pascal'
 
+
 interface EnumPluginOptions {
   /** Force particular enum casing. If omitted, the value will be left as-is, and the key will be transformed to PascalCase */
   consistentEnumCasing?: EnumCasing;
