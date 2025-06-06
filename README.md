@@ -48,7 +48,7 @@ type EnumCasing =
 | useConstEnums        | `boolean`                 | Whether or not to use const enums                                                                          | `false`     |
 
 
-- Example (JS)
+- Example
 ```json
 {
     "consistentEnumCasing": "upper",
