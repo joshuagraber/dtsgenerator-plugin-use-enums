@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "outDir": null
+  },
+  "include": [
+    "test/snapshot_test.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
