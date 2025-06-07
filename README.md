@@ -32,7 +32,7 @@ yarn add dtsgenerator-plugin-use-enums
 type Config = {
   enumStrategy?: EnumStrategy;
   consistentEnumCasing?: EnumCasing;
-  useConstEnums?: boolean;
+  constEnums?: boolean;
 };
 
 export type EnumStrategy = 
@@ -50,7 +50,7 @@ type EnumCasing =
 | -------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- | -------- | ----------- |
 | enumStrategy         | `EnumStrategy \| undefined` | Determines whether enums are created only from schema-defined enums, or from all string unions        | no       | `"schema"`  |
 | consistentEnumCasing | `EnumCasing \| undefined`   | If passed, enforces consistent casing. If not passed, keys are PascalCase and values are as they were | no       | `undefined` |
-| useConstEnums        | `boolean \| undefined`      | Whether or not to use const enums                                                                     | no       | `false`     |
+| constEnums           | `boolean \| undefined`      | Whether or not to use const enums                                                                     | no       | `false`     |
 
 
 - Example
@@ -58,7 +58,7 @@ type EnumCasing =
 {
   "enumStrategy": "all", // default "schema"
   "consistentEnumCasing": "upper", // default undefined
-  "useConstEnums": true // default false
+  "constEnums": true // default false
 }
 ```
 

@@ -4,12 +4,10 @@ import {
     Plugin,
     PluginContext,
     Schema,
-    // Schema,
 } from 'dtsgenerator';
-
 import packageJson from './package.json';
 
-// Plugin options
+/* Plugin options */
 export type EnumCasing =
   /* Both key and value take the casing of the value. 'foo bar' would generate `['foo bar'] = 'foo bar'`  */
   | 'value'
@@ -22,27 +20,22 @@ export type EnumCasing =
 
 
 export type EnumStrategy = 
-  /** Create enums only from schema-defined enums (default) */
+  /* Create enums only from schema-defined enums (default) */
   | 'schema'
-  /** Create enums from all string unions */
+  /* Create enums from all string unions */
   | 'all'
 
 interface EnumPluginOptions {
-  /** Force particular enum casing. If omitted, the value will be left as-is, and the key will be transformed to PascalCase */
+  /** Force consistent enum casing to one of the EnumCasing options. If omitted, the value will be left as-is, and the key will be transformed to PascalCase */
   consistentEnumCasing?: EnumCasing;
   /** Generate const enums */
-  useConstEnums?: boolean;
+  constEnums?: boolean;
   /** Strategy for enum creation. 'schema' only creates enums defined in schema, 'all' creates enums from all string unions */
   enumStrategy?: EnumStrategy;
 }
 
-// Track processed enums to prevent duplicates
 export const processedEnums = new Set<string>();
-
-// Store enum definitions
 export const enumDefinitions: Record<string, string[]> = {};
-
-// Store enum name mappings (original name -> PascalCase name)
 export const enumNameMappings: Record<string, string> = {};
 
 const plugin: Plugin = {
@@ -51,14 +44,10 @@ const plugin: Plugin = {
         version: packageJson.version,
         description: packageJson.description,
     },
-    // Remove the `preProcess` or `postProcess` if that is not needed for this plugin.
     preProcess,
     postProcess,
 };
 
-/**
- * This `preProcess` is the hook for the input schema changing.
- */
 async function preProcess(
     pluginContext: PluginContext
 ): Promise<PreProcessHandler | undefined> {
@@ -69,30 +58,21 @@ async function preProcess(
       }
     }
     
-    // Return a handler function that passes through the input schemas
     return (schemas) => schemas;
 }
 
-/**
- * This `postProcess` is the hook for the output AST changing.
- */
 async function postProcess(
     pluginContext: PluginContext
 ): Promise<ts.TransformerFactory<ts.SourceFile> | undefined> {
-    // Get plugin options
     const options: EnumPluginOptions = 
       typeof pluginContext.option === 'object' ?  
         pluginContext.option : {};
     
-    // Set default enum strategy to 'schema' if not specified
     const enumStrategy = options.enumStrategy ?? 'schema';
     
     return (context: ts.TransformationContext) => {
       return (sourceFile: ts.SourceFile): ts.SourceFile => {
-        // Create a factory for generating new nodes
         const factory = context.factory;
-        
-        // Store enum declarations to add at the beginning
         const enumDeclarations: ts.EnumDeclaration[] = [];
         
         // Create enum declarations from extracted definitions
@@ -106,7 +86,8 @@ async function postProcess(
             
             // Create enum members
             const enumMembers = values.map(value => {
-              const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
+              const { enumKey, enumValue } = 
+                getEnumMember(options.consistentEnumCasing, value); 
 
               
               // Create the enum member with appropriate node type
@@ -128,8 +109,8 @@ async function postProcess(
             
             // Create enum declaration with const modifier if specified
             const modifiers: ts.Modifier[] = [factory.createModifier(ts.SyntaxKind.ExportKeyword)];
-            if (options.useConstEnums) {
-              modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword) as ts.Modifier);
+            if (options.constEnums) {
+              modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword));
             }
             
             const enumDeclaration = factory.createEnumDeclaration(
@@ -197,8 +178,8 @@ async function postProcess(
               );
               
               // If all members are string literals, convert to enum
-              // Only proceed if enumStrategy is 'all' or we're dealing with a schema-defined enum
               if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0 && 
+                // Only proceed if enumStrategy is 'all' or we're dealing with a schema-defined enum
                   (enumStrategy === 'all' || processedEnums.has(node.name.text))) {
                 const enumName = node.name.text;
                 const pascalCaseName = toPascalCase(enumName);
@@ -233,7 +214,7 @@ async function postProcess(
                   
                   // Create enum declaration with const modifier if specified
                   const modifiers: ts.ModifierLike[] = [...(node.modifiers ?? [])];
-                  if (options.useConstEnums) {
+                  if (options.constEnums) {
                     modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword) as ts.Modifier);
                   }
                   
@@ -315,7 +296,7 @@ async function postProcess(
                   
                   // Create enum declaration with const modifier if specified
                   const modifiers: ts.Modifier[] = [factory.createModifier(ts.SyntaxKind.ExportKeyword)];
-                  if (options.useConstEnums) {
+                  if (options.constEnums) {
                     modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword) as ts.Modifier);
                   }
                   

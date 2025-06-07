@@ -25,7 +25,7 @@ describe('EnumStrategy option tests', () => {
   // Helper function to transform a source file using our plugin
   async function transformWithPlugin(
     sourceFile: ts.SourceFile, 
-    options: { enumStrategy?: 'schema' | 'all', consistentEnumCasing?: string, useConstEnums?: boolean }
+    options: { enumStrategy?: 'schema' | 'all', consistentEnumCasing?: string, constEnums?: boolean }
   ): Promise<string> {
     // Create plugin context with options
     const context = { 
@@ -102,7 +102,7 @@ describe('EnumStrategy option tests', () => {
     const sourceFile = createSourceFile(input);
     const output = await transformWithPlugin(sourceFile, { 
       enumStrategy: 'schema',
-      useConstEnums: true
+      constEnums: true
     });
     
     console.log('Schema strategy output:', output);
@@ -129,7 +129,7 @@ describe('EnumStrategy option tests', () => {
     const sourceFile = createSourceFile(input);
     const output = await transformWithPlugin(sourceFile, { 
       enumStrategy: 'all',
-      useConstEnums: true
+      constEnums: true
     });
     
     console.log('All strategy output:', output);

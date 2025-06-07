@@ -1,4 +1,4 @@
 {
   "consistentEnumCasing": "upper",
-  "useConstEnums": true
+  "constEnums": true
 }

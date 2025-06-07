@@ -1,5 +1,5 @@
 {
   "consistentEnumCasing": "lower",
-  "useConstEnums": false,
+  "constEnums": false,
   "enumStrategy": "all"
 }
