@@ -5,13 +5,17 @@ Use this plugin to generate enums from schemas with [the `dtsgenerator` package]
 
 # Install
 
-```
+```shell
 npm install dtsgenerator-plugin-use-enums
+```
+
+```shell
+yarn add dtsgenerator-plugin-use-enums
 ```
 
 # Usage
 `dtsgen.json`
-```json
+```jsonc
 {
     "plugins": {
         "dtsgenerator-plugin-use-enums": true, // or { config object }
@@ -32,20 +36,14 @@ type Config = {
 };
 
 export type EnumStrategy = 
-  /** Create enums only from schema-defined enums (default) */
   | 'schema'
-  /** Create enums from all string unions */
-  | 'all'
+  | 'all' 
 
 type EnumCasing =
-  /* Both key and value take the casing of the value. 'foo bar' would generate `['foo bar'] = 'foo bar'`  */
-  | 'value'
-  /* Both key and value take upper snake case of the value. 'foo bar' would generate `FOO_BAR = 'FOO_BAR'` */
-  | 'upper'
-  /* Both key and value take snake case of the value. 'foo bar' would generate `foo_bar = 'foo_bar'` */
-  | 'lower'
-  /* Both key and value take pascal case of the value. 'foo bar' would generate `FooBar = 'FooBar'` */
-  | 'pascal'
+  | 'value' /* Both key and value take the casing of the value. 'foo bar' would generate `['foo bar'] = 'foo bar'`  */
+  | 'upper' /* Both key and value take upper snake case of the value. 'foo bar' would generate `FOO_BAR = 'FOO_BAR'` */
+  | 'lower' /* Both key and value take snake case of the value. 'foo bar' would generate `foo_bar = 'foo_bar'` */
+  | 'pascal' /* Both key and value take pascal case of the value. 'foo bar' would generate `FooBar = 'FooBar'` */
 ```
 
 | key                  | type                        | description                                                                                           | Required | Default     |
@@ -56,11 +54,11 @@ type EnumCasing =
 
 
 - Example
-```json
+```jsonc
 {
-  "enumStrategy": "all",
-  "consistentEnumCasing": "upper",
-  "useConstEnums": true
+  "enumStrategy": "all", // default "schema"
+  "consistentEnumCasing": "upper", // default undefined
+  "useConstEnums": true // default false
 }
 ```
 
