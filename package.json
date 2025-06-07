@@ -21,7 +21,7 @@
     "do-test:unit": "cross-env TS_NODE_FILES=true mocha --exit --require ts-node/register --colors test/enum_strategy_test.ts",
     "test": "npm run build && npm run do-test",
     "coverage": "nyc report --reporter=text-lcov | coveralls",
-    "test:update-snapshot": "UPDATE_SNAPSHOT=1 npm run do-test",
+    "test:update-snapshot": "UPDATE_SNAPSHOT=1 npm run test",
     "prepare": "husky install"
   },
   "keywords": [
