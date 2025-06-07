@@ -5,15 +5,21 @@
   "repository": "https://github.com/joshuagraber/dtsgenerator-plugin-use-enums.git",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist/{index*,package.json}", "package.json", "README"],
+  "files": [
+    "dist/{index*,package.json}",
+    "package.json",
+    "README"
+  ],
   "scripts": {
     "clean": "rimraf dist test/**/*.js *.tsbuildinfo",
     "format": "prettier --write **/*.ts",
     "lint": "eslint --fix *.ts **/*.ts",
     "fix": "npm run format && npm run lint",
     "build": "tsc -p .",
-    "do-test": "cross-env TS_NODE_FILES=true mocha --exit --require ts-node/register --colors test/*_test.ts",
-    "test": "npm run build && nyc npm run do-test",
+    "do-test": "nyc run-p do-test:*",
+    "do-test:snapshot": "cross-env TS_NODE_FILES=true mocha --exit --require ts-node/register --colors test/*_test.ts",
+    "do-test:unit": "cross-env TS_NODE_FILES=true mocha --exit --require ts-node/register --colors test/enum_strategy_test.ts",
+    "test": "npm run build && npm run do-test",
     "coverage": "nyc report --reporter=text-lcov | coveralls",
     "test:update-snapshot": "UPDATE_SNAPSHOT=1 npm run do-test",
     "prepare": "husky install"
@@ -62,5 +68,8 @@
     "semantic-release": "^21.0.7",
     "ts-node": "^10.9.2",
     "tslib": "^2.8.1"
+  },
+  "dependencies": {
+    "npm-run-all": "^4.1.5"
   }
 }
