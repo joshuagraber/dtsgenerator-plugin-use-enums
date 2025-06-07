@@ -1,4 +1,5 @@
 {
   "consistentEnumCasing": "pascal",
-  "useConstEnums": true
+  "useConstEnums": true,
+  "enumStrategy": "all"
 }

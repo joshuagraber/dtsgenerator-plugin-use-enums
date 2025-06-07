@@ -1,4 +1,5 @@
 {
   "consistentEnumCasing": "value",
-  "useConstEnums": false
+  "useConstEnums": false,
+  "enumStrategy": "all"
 }
