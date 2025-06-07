@@ -21,21 +21,29 @@ export type EnumCasing =
   | 'pascal'
 
 
+export type EnumStrategy = 
+  /** Create enums only from schema-defined enums (default) */
+  | 'schema'
+  /** Create enums from all string unions */
+  | 'all'
+
 interface EnumPluginOptions {
   /** Force particular enum casing. If omitted, the value will be left as-is, and the key will be transformed to PascalCase */
   consistentEnumCasing?: EnumCasing;
   /** Generate const enums */
   useConstEnums?: boolean;
+  /** Strategy for enum creation. 'schema' only creates enums defined in schema, 'all' creates enums from all string unions */
+  enumStrategy?: EnumStrategy;
 }
 
 // Track processed enums to prevent duplicates
-const processedEnums = new Set<string>();
+export const processedEnums = new Set<string>();
 
 // Store enum definitions
-const enumDefinitions: Record<string, string[]> = {};
+export const enumDefinitions: Record<string, string[]> = {};
 
 // Store enum name mappings (original name -> PascalCase name)
-const enumNameMappings: Record<string, string> = {};
+export const enumNameMappings: Record<string, string> = {};
 
 const plugin: Plugin = {
     meta: {
@@ -75,6 +83,9 @@ async function postProcess(
     const options: EnumPluginOptions = 
       typeof pluginContext.option === 'object' ?  
         pluginContext.option : {};
+    
+    // Set default enum strategy to 'schema' if not specified
+    const enumStrategy = options.enumStrategy ?? 'schema';
     
     return (context: ts.TransformationContext) => {
       return (sourceFile: ts.SourceFile): ts.SourceFile => {
@@ -182,11 +193,13 @@ async function postProcess(
               // Check if all union members are string literals
               const stringLiterals = typeNode.types.filter(
                 type => ts.isLiteralTypeNode(type) && 
-                       ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
+                ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
               );
               
               // If all members are string literals, convert to enum
-              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0) {
+              // Only proceed if enumStrategy is 'all' or we're dealing with a schema-defined enum
+              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0 && 
+                  (enumStrategy === 'all' || processedEnums.has(node.name.text))) {
                 const enumName = node.name.text;
                 const pascalCaseName = toPascalCase(enumName);
                 enumNameMappings[enumName.toLowerCase()] = pascalCaseName;
@@ -250,7 +263,8 @@ async function postProcess(
                        ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
               );
               
-              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0) {
+              // Only process if enumStrategy is 'all'
+              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0 && enumStrategy === 'all') {
                 // Extract values to create an enum name
                 const values = stringLiterals.map(literal => 
                   ((literal as ts.LiteralTypeNode).literal as ts.StringLiteral).text
@@ -280,7 +294,7 @@ async function postProcess(
                   
                   // Create enum members
                   const enumMembers = values.map(value => {
-                   const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
+                  const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
                     
                     // Create the enum member with appropriate node type
                     if (enumKey.startsWith('[')) {
