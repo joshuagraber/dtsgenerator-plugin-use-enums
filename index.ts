@@ -37,11 +37,6 @@ const enumDefinitions: Record<string, string[]> = {};
 // Store enum name mappings (original name -> PascalCase name)
 const enumNameMappings: Record<string, string> = {};
 
-
-/**
- * This file is the main implementation for this plugin.
- * Please edit this implementation.
- */
 const plugin: Plugin = {
     meta: {
         name: packageJson.name,
@@ -100,30 +95,8 @@ async function postProcess(
             
             // Create enum members
             const enumMembers = values.map(value => {
-              let enumKey = value;
-              let enumValue = value;
-              
-              // Apply consistent casing based on options
-              switch (options.consistentEnumCasing) {
-                case 'value':
-                  // For 'value' option, keep the original value but handle spaces
-                  enumKey = /\s/.test(value) ? `["${value}"]` : value;
-                  break;
-                case 'upper':
-                  enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
-                  enumValue = value.toUpperCase();
-                  break;
-                case 'lower':
-                  enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-                  enumValue = value.toLowerCase();
-                  break;
-                case 'pascal':
-                  enumKey = toPascalCase(value.replace(/[^a-zA-Z0-9_]/g, '_'));
-                  enumValue = toPascalCase(value);
-                  break;
-                default:
-                  enumKey = toPascalCase(value.replace(/[^a-zA-Z0-9_]/g, '_'));
-              }
+              const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
+
               
               // Create the enum member with appropriate node type
               if (enumKey.startsWith('[')) {
@@ -225,33 +198,8 @@ async function postProcess(
                   const enumMembers = stringLiterals.map(literal => {
                     const stringLiteral = (literal as ts.LiteralTypeNode).literal as ts.StringLiteral;
                     const value = stringLiteral.text;
-                    let enumKey = value;
-                    let enumValue = value;
-                    
-                    // Apply consistent casing based on options
-                    switch (options.consistentEnumCasing) {
-                      case 'value':
-                        // For 'value' option, keep the original value but handle spaces
-                        enumKey = /\s/.test(value) ? `["${value}"]` : value;
-                        break;
-                      case 'upper':
-                        enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
-                        enumValue = value.toUpperCase();
-                        break;
-                      case 'lower':
-                        enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-                        enumValue = value.toLowerCase();
-                        break;
-                      case 'pascal':
-                        enumKey = toPascalCase(value.replace(/[^a-zA-Z0-9_]/g, '_'));
-                        enumValue = toPascalCase(value);
-                        break;
-                      default:
-                        // Handle spaces in the default case too
-                        enumKey = /\s/.test(value) ? 
-                          `["${value.toUpperCase()}"]` : 
-                          value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
-                    }
+                    const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
+
                     
                     // Create the enum member with appropriate node type
                     if (enumKey.startsWith('[')) {
@@ -332,33 +280,7 @@ async function postProcess(
                   
                   // Create enum members
                   const enumMembers = values.map(value => {
-                    let enumKey = value;
-                    let enumValue = value;
-                    
-                    // Apply consistent casing based on options
-                    switch (options.consistentEnumCasing) {
-                      case 'value':
-                        // For 'value' option, keep the original value but handle spaces
-                        enumKey = /\s/.test(value) ? `["${value}"]` : value;
-                        break;
-                      case 'upper':
-                        enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
-                        enumValue = value.toUpperCase();
-                        break;
-                      case 'lower':
-                        enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-                        enumValue = value.toLowerCase();
-                        break;
-                      case 'pascal':
-                        enumKey = toPascalCase(value.replace(/[^a-zA-Z0-9_]/g, '_'));
-                        enumValue = toPascalCase(value);
-                        break;
-                      default:
-                        // Handle spaces in the default case too
-                        enumKey = /\s/.test(value) ? 
-                          `["${value.toUpperCase()}"]` : 
-                          value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
-                    }
+                   const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
                     
                     // Create the enum member with appropriate node type
                     if (enumKey.startsWith('[')) {
@@ -504,5 +426,31 @@ function arraysEqual(a: unknown[], b: unknown[]): boolean {
   return true;
 }
 
+function getEnumMember(consistentEnumCasing: EnumCasing | undefined, value: string) {
+    let enumKey = value, enumValue = value;
+
+    switch (consistentEnumCasing) {
+    case 'value':
+      // For 'value' option, keep the original value but handle spaces
+      enumKey = /\s/.test(value) ? `["${value}"]` : value;
+      break;
+    case 'upper':
+      enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
+      enumValue = value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
+      break;
+    case 'lower':
+      enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+      enumValue = value.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+      break;
+    case 'pascal':
+      enumKey = toPascalCase(value);
+      enumValue = toPascalCase(value);
+      break;
+    default:
+      enumKey = toPascalCase(value);
+  }
+
+  return { enumKey, enumValue };
+}
 
 export default plugin;
