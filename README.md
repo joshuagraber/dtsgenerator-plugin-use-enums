@@ -1,7 +1,7 @@
-# dtsgenerator-use-enums
+# dtsgenerator-plugin-use-enums
 
-This is the `dtsgenerator` plugin.
-This plugin's description is here.
+This is the `dtsgenerator-plugin-use-enums` plugin.
+Use this plugin to generate enums from schemas with [the `dtsgenerator` package](https://github.com/horiuchi/dtsgenerator) by @horiuchi.
 
 # Install
 
@@ -10,7 +10,6 @@ npm install dtsgenerator-plugin-use-enums
 ```
 
 # Usage
-
 `dtsgen.json`
 ```json
 {
@@ -27,9 +26,16 @@ npm install dtsgenerator-plugin-use-enums
 - the type of configuration
 ```ts
 type Config = {
-  consistentEnumCasing: EnumCasing | undefined;
-  useConstEnums: boolean;
+  enumStrategy?: EnumStrategy;
+  consistentEnumCasing?: EnumCasing;
+  useConstEnums?: boolean;
 };
+
+export type EnumStrategy = 
+  /** Create enums only from schema-defined enums (default) */
+  | 'schema'
+  /** Create enums from all string unions */
+  | 'all'
 
 type EnumCasing =
   /* Both key and value take the casing of the value. 'foo bar' would generate `['foo bar'] = 'foo bar'`  */
@@ -42,17 +48,19 @@ type EnumCasing =
   | 'pascal'
 ```
 
-| key                  | type                      | description                                                                                           | Default     |
-| -------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------- | ----------- |
-| consistentEnumCasing | `EnumCasing \| undefined` | If passed, enforces consistent casing. If not passed, keys are PascalCase and values are as they were | `undefined` |
-| useConstEnums        | `boolean`                 | Whether or not to use const enums                                                                     | `false`     |
+| key                  | type                        | description                                                                                           | Required | Default     |
+| -------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- | -------- | ----------- |
+| enumStrategy         | `EnumStrategy \| undefined` | Determines whether enums are created only from schema-defined enums, or from all string unions        | no       | `"schema"`  |
+| consistentEnumCasing | `EnumCasing \| undefined`   | If passed, enforces consistent casing. If not passed, keys are PascalCase and values are as they were | no       | `undefined` |
+| useConstEnums        | `boolean \| undefined`      | Whether or not to use const enums                                                                     | no       | `false`     |
 
 
 - Example
 ```json
 {
-    "consistentEnumCasing": "upper",
-    "useConstEnums": true
+  "enumStrategy": "all",
+  "consistentEnumCasing": "upper",
+  "useConstEnums": true
 }
 ```
 
