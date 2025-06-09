@@ -28,21 +28,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Restore cached build
-        uses: actions/cache@v3
-        with:
-          path: |
-            dist
-            *.tsbuildinfo
-          key: ${{ runner.os }}-build-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-build-
-      
-      - name: Build if cache miss
-        run: |
-          if [ ! -d "dist" ]; then
-            npm run build
-          fi
+      - name: Build
+        run: npm run build
       
       - name: Release
         env:
