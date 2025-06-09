@@ -40,7 +40,7 @@ export type EnumStrategy =
   | 'all' 
 
 type EnumCasing =
-  | 'value' /* Both key and value take the casing of the value. 'foo bar' would generate `['foo bar'] = 'foo bar'`  */
+  | 'value' /* Both key and value take the casing of the value. 'foo bar' would generate `'foo bar' = 'foo bar'`  */
   | 'upper' /* Both key and value take upper snake case of the value. 'foo bar' would generate `FOO_BAR = 'FOO_BAR'` */
   | 'lower' /* Both key and value take snake case of the value. 'foo bar' would generate `foo_bar = 'foo_bar'` */
   | 'pascal' /* Both key and value take pascal case of the value. 'foo bar' would generate `FooBar = 'FooBar'` */

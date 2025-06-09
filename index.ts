@@ -9,7 +9,7 @@ import packageJson from './package.json';
 
 /* Plugin options */
 export type EnumCasing =
-  /* Both key and value take the casing of the value. 'foo bar' would generate `['foo bar'] = 'foo bar'`  */
+  /* Both key and value take the casing of the value. 'foo bar' would generate `'foo bar' = 'foo bar'`  */
   | 'value'
   /* Both key and value take upper snake case of the value. 'foo bar' would generate `FOO_BAR = 'FOO_BAR'` */
   | 'upper'
