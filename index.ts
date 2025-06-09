@@ -91,11 +91,11 @@ async function postProcess(
 
               
               // Create the enum member with appropriate node type
-              if (enumKey.startsWith('[')) {
-                // For computed property names (with spaces)
-                const keyWithoutBrackets = enumKey.substring(2, enumKey.length - 2);
+              if (enumKey.startsWith('"')) {
+                // For string literal property names (with spaces)
+                const keyWithoutQuotes = enumKey.substring(1, enumKey.length - 1);
                 return factory.createEnumMember(
-                  factory.createComputedPropertyName(factory.createStringLiteral(keyWithoutBrackets)),
+                  factory.createStringLiteral(keyWithoutQuotes),
                   factory.createStringLiteral(enumValue)
                 );
               } else {
@@ -196,11 +196,11 @@ async function postProcess(
 
                     
                     // Create the enum member with appropriate node type
-                    if (enumKey.startsWith('[')) {
-                      // For computed property names (with spaces)
-                      const keyWithoutBrackets = enumKey.substring(2, enumKey.length - 2);
+                    if (enumKey.startsWith('"')) {
+                      // For string literal property names (with spaces)
+                      const keyWithoutQuotes = enumKey.substring(1, enumKey.length - 1);
                       return factory.createEnumMember(
-                        factory.createComputedPropertyName(factory.createStringLiteral(keyWithoutBrackets)),
+                        factory.createStringLiteral(keyWithoutQuotes),
                         factory.createStringLiteral(enumValue)
                       );
                     } else {
@@ -278,11 +278,11 @@ async function postProcess(
                   const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
                     
                     // Create the enum member with appropriate node type
-                    if (enumKey.startsWith('[')) {
-                      // For computed property names (with spaces)
-                      const keyWithoutBrackets = enumKey.substring(2, enumKey.length - 2);
+                    if (enumKey.startsWith('"')) {
+                      // For string literal property names (with spaces)
+                      const keyWithoutQuotes = enumKey.substring(1, enumKey.length - 1);
                       return factory.createEnumMember(
-                        factory.createComputedPropertyName(factory.createStringLiteral(keyWithoutBrackets)),
+                        factory.createStringLiteral(keyWithoutQuotes),
                         factory.createStringLiteral(enumValue)
                       );
                     } else {
@@ -427,7 +427,7 @@ function getEnumMember(consistentEnumCasing: EnumCasing | undefined, value: stri
     switch (consistentEnumCasing) {
     case 'value':
       // For 'value' option, keep the original value but handle spaces
-      enumKey = /\s/.test(value) ? `["${value}"]` : value;
+      enumKey = /\s/.test(value) ? `"${value}"` : value;
       break;
     case 'upper':
       enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
