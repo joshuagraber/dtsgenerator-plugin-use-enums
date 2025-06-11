@@ -423,11 +423,15 @@ function arraysEqual(a: unknown[], b: unknown[]): boolean {
 
 function getEnumMember(consistentEnumCasing: EnumCasing | undefined, value: string) {
     let enumKey = value, enumValue = value;
+    
+    // Check for spaces or reserved characters in TypeScript enum names
+    // eslint-disable-next-line no-useless-escape
+    const hasInvalidChars = /[\s&\-+.(){}[\]^%$#@!,;:'\"\/\\<>?=*|~`]/.test(value);
 
     switch (consistentEnumCasing) {
     case 'value':
-      // For 'value' option, keep the original value but handle spaces
-      enumKey = /\s/.test(value) ? `"${value}"` : value;
+      // For 'value' option, keep the original value but handle invalid chars with quotes
+      enumKey = hasInvalidChars ? `"${value}"` : value;
       break;
     case 'upper':
       enumKey = value.replace(/[^a-zA-Z0-9_]/g, '_').toUpperCase();
