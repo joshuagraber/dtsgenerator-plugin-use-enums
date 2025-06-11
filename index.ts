@@ -3,40 +3,38 @@ import {
     PreProcessHandler,
     Plugin,
     PluginContext,
-    Schema,
 } from 'dtsgenerator';
 import packageJson from './package.json';
 
 /* Plugin options */
 export type EnumCasing =
-  /* Both key and value take the casing of the value. 'foo bar' would generate `'foo bar' = 'foo bar'`  */
   | 'value'
-  /* Both key and value take upper snake case of the value. 'foo bar' would generate `FOO_BAR = 'FOO_BAR'` */
   | 'upper'
-  /* Both key and value take snake case of the value. 'foo bar' would generate `foo_bar = 'foo_bar'` */
   | 'lower'
-  /* Both key and value take pascal case of the value. 'foo bar' would generate `FooBar = 'FooBar'` */
   | 'pascal'
 
-
 export type EnumStrategy = 
-  /* Create enums only from schema-defined enums (default) */
   | 'schema'
-  /* Create enums from all string unions */
   | 'all'
 
 interface EnumPluginOptions {
-  /** Force consistent enum casing to one of the EnumCasing options. If omitted, the value will be left as-is, and the key will be transformed to PascalCase */
   consistentEnumCasing?: EnumCasing;
-  /** Generate const enums */
   constEnums?: boolean;
-  /** Strategy for enum creation. 'schema' only creates enums defined in schema, 'all' creates enums from all string unions */
   enumStrategy?: EnumStrategy;
 }
 
-export const processedEnums = new Set<string>();
-export const enumDefinitions: Record<string, string[]> = {};
-export const enumNameMappings: Record<string, string> = {};
+interface EnumInfo {
+  name: string;
+  values: string[];
+  namespacePath: string[];
+  pascalCaseName: string;
+  fullPath: string; 
+}
+
+const enumsByValues = new Map<string, EnumInfo>();
+const enumsByPath = new Map<string, EnumInfo>();
+const processedEnums = new Set<string>();
+const schemaDefinedEnums = new Set<string>();
 
 const plugin: Plugin = {
     meta: {
@@ -51,10 +49,16 @@ const plugin: Plugin = {
 async function preProcess(
     pluginContext: PluginContext
 ): Promise<PreProcessHandler | undefined> {
-    // Extract enums from schema
+    // Clear previous state
+    enumsByValues.clear();
+    enumsByPath.clear();
+    processedEnums.clear();
+    schemaDefinedEnums.clear();
+    
+    // Extract schema-defined enums
     if (pluginContext.inputSchemas) {
       for (const [_, schema] of pluginContext.inputSchemas) {
-        extractEnumsFromSchema(schema.content, '');
+        extractSchemaEnums(schema.content, []);
       }
     }
     
@@ -73,325 +77,379 @@ async function postProcess(
     return (context: ts.TransformationContext) => {
       return (sourceFile: ts.SourceFile): ts.SourceFile => {
         const factory = context.factory;
-        const enumDeclarations: ts.EnumDeclaration[] = [];
         
-        // Create enum declarations from extracted definitions
-        for (const [enumName, values] of Object.entries(enumDefinitions)) {
-          if (!processedEnums.has(enumName)) {
-            processedEnums.add(enumName);
-            
-            // Convert enum name to PascalCase
-            const pascalCaseName = toPascalCase(enumName);
-            enumNameMappings[enumName.toLowerCase()] = pascalCaseName;
-            
-            // Create enum members
-            const enumMembers = values.map(value => {
-              const { enumKey, enumValue } = 
-                getEnumMember(options.consistentEnumCasing, value); 
-
-              
-              // Create the enum member with appropriate node type
-              if (enumKey.startsWith('"')) {
-                // For string literal property names (with spaces)
-                const keyWithoutQuotes = enumKey.substring(1, enumKey.length - 1);
-                return factory.createEnumMember(
-                  factory.createStringLiteral(keyWithoutQuotes),
-                  factory.createStringLiteral(enumValue)
-                );
-              } else {
-                // For regular identifiers
-                return factory.createEnumMember(
-                  factory.createIdentifier(enumKey),
-                  factory.createStringLiteral(enumValue)
-                );
-              }
-            });
-            
-            // Create enum declaration with const modifier if specified
-            const modifiers: ts.Modifier[] = [factory.createModifier(ts.SyntaxKind.ExportKeyword)];
-            if (options.constEnums) {
-              modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword));
+        // First pass: collect all string unions and their contexts
+        function collectEnums(node: ts.Node, namespacePath: string[] = []): void {
+          if (ts.isModuleDeclaration(node) && node.name && ts.isIdentifier(node.name)) {
+            const newPath = [...namespacePath, node.name.text];
+            if (node.body && ts.isModuleBlock(node.body)) {
+              node.body.statements.forEach(stmt => collectEnums(stmt, newPath));
             }
-            
-            const enumDeclaration = factory.createEnumDeclaration(
-              modifiers,
-              factory.createIdentifier(pascalCaseName),
-              enumMembers
+          } else if (ts.isTypeAliasDeclaration(node) && ts.isUnionTypeNode(node.type)) {
+            const typeNode = node.type;
+            const stringLiterals = typeNode.types.filter(
+              type => ts.isLiteralTypeNode(type) && 
+              ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
             );
             
-            // Add to our list of enum declarations
-            enumDeclarations.push(enumDeclaration);
-          }
-        }
-        
-        // Find all type aliases that look like enums (string literal unions)
-        function visit(node: ts.Node): ts.Node {
-          // Remove stray semicolons
-          if (node.kind === ts.SyntaxKind.EmptyStatement) {
-            return factory.createNotEmittedStatement(node);
-          }
-          
-          // Handle type references to enums in namespaces
-          if (ts.isTypeReferenceNode(node) && ts.isQualifiedName(node.typeName)) {
-            // Check if this is a reference to a Components.Schemas.X where X is an enum
-            const rightName = node.typeName.right.text;
-            
-            // If we have a mapping for this enum name, replace the reference with the top-level enum
-            if (enumNameMappings[rightName.toLowerCase()]) {
-              return factory.createTypeReferenceNode(
-                enumNameMappings[rightName.toLowerCase()],
-                undefined
-              );
-            }
-          }
-          
-          // Handle type aliases in namespaces that reference enums
-          if (ts.isTypeAliasDeclaration(node) && ts.isTypeReferenceNode(node.type)) {
-            const typeNode = node.type;
-            
-            // If the type alias is referencing an enum, keep it but update the reference
-            if (ts.isQualifiedName(typeNode.typeName)) {
-              const rightName = typeNode.typeName.right.text;
-              if (enumNameMappings[rightName.toLowerCase()]) {
-                return factory.updateTypeAliasDeclaration(
-                  node,
-                  node.modifiers,
-                  node.name,
-                  node.typeParameters,
-                  factory.createTypeReferenceNode(
-                    enumNameMappings[rightName.toLowerCase()],
-                    undefined
-                  )
-                );
-              }
-            }
-          }
-          
-          if (ts.isTypeAliasDeclaration(node)) {
-            const typeNode = node.type;
-            
-            if (ts.isUnionTypeNode(typeNode)) {
-              // Check if all union members are string literals
-              const stringLiterals = typeNode.types.filter(
-                type => ts.isLiteralTypeNode(type) && 
-                ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
+            if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0) {
+              const enumName = node.name.text;
+              const values = stringLiterals.map(literal => 
+                ((literal as ts.LiteralTypeNode).literal as ts.StringLiteral).text
               );
               
-              // If all members are string literals, convert to enum
-              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0 && 
-                // Only proceed if enumStrategy is 'all' or we're dealing with a schema-defined enum
-                  (enumStrategy === 'all' || processedEnums.has(node.name.text))) {
-                const enumName = node.name.text;
-                const pascalCaseName = toPascalCase(enumName);
-                enumNameMappings[enumName.toLowerCase()] = pascalCaseName;
-                
-                if (!processedEnums.has(enumName)) {
-                  processedEnums.add(enumName);
-                  
-                  // Create enum members
-                  const enumMembers = stringLiterals.map(literal => {
-                    const stringLiteral = (literal as ts.LiteralTypeNode).literal as ts.StringLiteral;
-                    const value = stringLiteral.text;
-                    const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
-
-                    
-                    // Create the enum member with appropriate node type
-                    if (enumKey.startsWith('"')) {
-                      // For string literal property names (with spaces)
-                      const keyWithoutQuotes = enumKey.substring(1, enumKey.length - 1);
-                      return factory.createEnumMember(
-                        factory.createStringLiteral(keyWithoutQuotes),
-                        factory.createStringLiteral(enumValue)
-                      );
-                    } else {
-                      // For regular identifiers
-                      return factory.createEnumMember(
-                        factory.createIdentifier(enumKey),
-                        factory.createStringLiteral(enumValue)
-                      );
-                    }
-                  });
-                  
-                  // Create enum declaration with const modifier if specified
-                  const modifiers: ts.ModifierLike[] = [...(node.modifiers ?? [])];
-                  if (options.constEnums) {
-                    modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword) as ts.Modifier);
-                  }
-                  
-                  const enumDeclaration = factory.createEnumDeclaration(
-                    modifiers,
-                    factory.createIdentifier(pascalCaseName),
-                    enumMembers
-                  );
-                  
-                  // Add to our list of enum declarations
-                  enumDeclarations.push(enumDeclaration);
-                  
-                  // Return an empty statement to remove the original type alias
-                  return factory.createEmptyStatement();
-                }
+              if (enumStrategy === 'all' || isSchemaDefinedEnum(enumName, values)) {
+                registerEnum(enumName, values, namespacePath);
               }
             }
-          }
-          
-          // Replace string literal union property types with enum references
-          if (ts.isPropertySignature(node) && node.type) {
-            // Handle direct union types
-            if (ts.isUnionTypeNode(node.type)) {
+          } else if (ts.isPropertySignature(node) && node.type && ts.isUnionTypeNode(node.type)) {
+            // Handle inline union types in properties
+            if (enumStrategy === 'all') {
               const typeNode = node.type;
               const stringLiterals = typeNode.types.filter(
                 type => ts.isLiteralTypeNode(type) && 
-                       ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
+                  ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
               );
               
-              // Only process if enumStrategy is 'all'
-              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0 && enumStrategy === 'all') {
-                // Extract values to create an enum name
+              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0) {
                 const values = stringLiterals.map(literal => 
                   ((literal as ts.LiteralTypeNode).literal as ts.StringLiteral).text
                 );
                 
-                // Generate a name based on property name
-                let enumName = '';
+                // Generate enum name based on property name
                 if (node.name && ts.isIdentifier(node.name)) {
-                  enumName = node.name.text;
+                  const enumName = node.name.text;
+                  registerEnum(enumName, values, namespacePath);
                 }
-                
-                // Check if this matches an existing enum
-                for (const [existingName, existingValues] of Object.entries(enumDefinitions)) {
-                  if (arraysEqual(values, existingValues)) {
-                    enumName = existingName;
-                    break;
-                  }
-                }
-                
-                if (enumName && !processedEnums.has(enumName)) {
-                  processedEnums.add(enumName);
-                  enumDefinitions[enumName] = values;
+              }
+            }
+          }
+          
+          ts.forEachChild(node, child => collectEnums(child, namespacePath));
+        }
+        
+        // Collect all enums first
+        collectEnums(sourceFile);
+        
+        // Second pass: transform the AST
+        function visit(node: ts.Node, currentNamespacePath: string[] = []): ts.Node {
+          if (ts.isModuleDeclaration(node) && node.name && ts.isIdentifier(node.name)) {
+            const newPath = [...currentNamespacePath, node.name.text];
+            
+            if (node.body && ts.isModuleBlock(node.body)) {
+              const transformedStatements: ts.Statement[] = [];
+              const enumsToAdd: ts.EnumDeclaration[] = [];
+              
+              // Add enums that belong to this namespace
+              for (const [_, enumInfo] of enumsByPath.entries()) {
+                if (arraysEqual(enumInfo.namespacePath, newPath) && !processedEnums.has(enumInfo.fullPath)) {
+                  processedEnums.add(enumInfo.fullPath);
                   
-                  // Convert enum name to PascalCase
-                  const pascalCaseName = toPascalCase(enumName);
-                  enumNameMappings[enumName.toLowerCase()] = pascalCaseName;
-                  
-                  // Create enum members
-                  const enumMembers = values.map(value => {
-                  const { enumKey, enumValue } = getEnumMember(options.consistentEnumCasing, value); 
+                  const enumMembers = enumInfo.values.map(value => {
+                    const { enumKey: memberKey, enumValue } = 
+                      getEnumMember(options.consistentEnumCasing, value);
                     
-                    // Create the enum member with appropriate node type
-                    if (enumKey.startsWith('"')) {
-                      // For string literal property names (with spaces)
-                      const keyWithoutQuotes = enumKey.substring(1, enumKey.length - 1);
+                    if (memberKey.startsWith('"')) {
+                      const keyWithoutQuotes = memberKey.substring(1, memberKey.length - 1);
                       return factory.createEnumMember(
                         factory.createStringLiteral(keyWithoutQuotes),
                         factory.createStringLiteral(enumValue)
                       );
                     } else {
-                      // For regular identifiers
                       return factory.createEnumMember(
-                        factory.createIdentifier(enumKey),
+                        factory.createIdentifier(memberKey),
                         factory.createStringLiteral(enumValue)
                       );
                     }
                   });
                   
-                  // Create enum declaration with const modifier if specified
                   const modifiers: ts.Modifier[] = [factory.createModifier(ts.SyntaxKind.ExportKeyword)];
                   if (options.constEnums) {
-                    modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword) as ts.Modifier);
+                    modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword));
                   }
                   
                   const enumDeclaration = factory.createEnumDeclaration(
                     modifiers,
-                    factory.createIdentifier(pascalCaseName),
+                    factory.createIdentifier(enumInfo.pascalCaseName),
                     enumMembers
                   );
                   
-                  // Add to our list of enum declarations
-                  enumDeclarations.push(enumDeclaration);
+                  enumsToAdd.push(enumDeclaration);
+                }
+              }
+              
+              // Process existing statements
+              for (const stmt of node.body.statements) {
+                const transformedStmt = ts.visitNode(stmt, (child) => visit(child, newPath)) as ts.Statement;
+                
+                // Skip type aliases that we've converted to enums
+                if (ts.isTypeAliasDeclaration(transformedStmt)) {
+                  const fullPath = [...newPath, transformedStmt.name.text].join('.');
+                  if (enumsByPath.has(fullPath)) {
+                    continue; // Skip this type alias as it's now an enum
+                  }
                 }
                 
-                if (enumName) {
-                  // Replace the union type with the enum reference
+                transformedStatements.push(transformedStmt);
+              }
+              
+              // Combine enums and other statements
+              const allStatements = [...enumsToAdd, ...transformedStatements];
+              
+              return factory.updateModuleDeclaration(
+                node,
+                node.modifiers,
+                node.name,
+                factory.updateModuleBlock(node.body, allStatements)
+              );
+            }
+          }
+          
+          // Handle top-level type aliases that should become enums
+          if (ts.isTypeAliasDeclaration(node) && ts.isUnionTypeNode(node.type)) {
+            const typeNode = node.type;
+            const stringLiterals = typeNode.types.filter(
+              type => ts.isLiteralTypeNode(type) && 
+              ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
+            );
+            
+            if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0) {
+              const enumName = node.name.text;
+              const values = stringLiterals.map(literal => 
+                ((literal as ts.LiteralTypeNode).literal as ts.StringLiteral).text
+              );
+              
+              if (enumStrategy === 'all' || isSchemaDefinedEnum(enumName, values)) {
+                const fullPath = [...currentNamespacePath, enumName].join('.');
+                const enumInfo = enumsByPath.get(fullPath);
+                
+                if (enumInfo && !processedEnums.has(fullPath)) {
+                  processedEnums.add(fullPath);
+                  
+                  const enumMembers = enumInfo.values.map(value => {
+                    const { enumKey: memberKey, enumValue } = 
+                      getEnumMember(options.consistentEnumCasing, value);
+                    
+                    if (memberKey.startsWith('"')) {
+                      const keyWithoutQuotes = memberKey.substring(1, memberKey.length - 1);
+                      return factory.createEnumMember(
+                        factory.createStringLiteral(keyWithoutQuotes),
+                        factory.createStringLiteral(enumValue)
+                      );
+                    } else {
+                      return factory.createEnumMember(
+                        factory.createIdentifier(memberKey),
+                        factory.createStringLiteral(enumValue)
+                      );
+                    }
+                  });
+                  
+                  const modifiers: ts.Modifier[] = [factory.createModifier(ts.SyntaxKind.ExportKeyword)];
+                  if (options.constEnums) {
+                    modifiers.push(factory.createModifier(ts.SyntaxKind.ConstKeyword));
+                  }
+                  
+                  const enumDeclaration = factory.createEnumDeclaration(
+                    modifiers,
+                    factory.createIdentifier(enumInfo.pascalCaseName),
+                    enumMembers
+                  );
+                  
+                  return enumDeclaration;
+                }
+              }
+            }
+          }
+          
+          // Handle property signatures - replace union types with enum references
+          if (ts.isPropertySignature(node) && node.type) {
+            if (ts.isUnionTypeNode(node.type)) {
+              const typeNode = node.type;
+              const stringLiterals = typeNode.types.filter(
+                type => ts.isLiteralTypeNode(type) && 
+                  ts.isStringLiteral((type as ts.LiteralTypeNode).literal)
+              );
+              
+              if (stringLiterals.length === typeNode.types.length && stringLiterals.length > 0) {
+                const values = stringLiterals.map(literal => 
+                  ((literal as ts.LiteralTypeNode).literal as ts.StringLiteral).text
+                );
+                
+                // Find the canonical enum for these values
+                const valuesKey = JSON.stringify(values.sort());
+                const enumInfo = enumsByValues.get(valuesKey);
+                
+                if (enumInfo) {
+                  // Determine if we need a qualified reference
+                  const needsQualifiedReference = !arraysEqual(enumInfo.namespacePath, currentNamespacePath);
+                  
+                  if (needsQualifiedReference && enumInfo.namespacePath.length > 0) {
+                    // Create qualified reference
+                    const qualifiedName = createQualifiedName(factory, enumInfo.namespacePath, enumInfo.pascalCaseName);
+                    return factory.updatePropertySignature(
+                      node,
+                      node.modifiers,
+                      node.name,
+                      node.questionToken,
+                      factory.createTypeReferenceNode(qualifiedName, undefined)
+                    );
+                  } else {
+                    // Use simple reference
+                    return factory.updatePropertySignature(
+                      node,
+                      node.modifiers,
+                      node.name,
+                      node.questionToken,
+                      factory.createTypeReferenceNode(enumInfo.pascalCaseName, undefined)
+                    );
+                  }
+                }
+              }
+            }
+            
+            // Handle qualified name references - replace with appropriate enum references
+            if (ts.isTypeReferenceNode(node.type) && ts.isQualifiedName(node.type.typeName)) {
+              const qualifiedName = node.type.typeName;
+              const fullPath = getFullPathFromQualifiedName(qualifiedName);
+              const enumInfo = enumsByPath.get(fullPath);
+              
+              if (enumInfo) {
+                // Determine the best reference to use
+                const needsQualifiedReference = !arraysEqual(enumInfo.namespacePath, currentNamespacePath);
+                
+                if (needsQualifiedReference && enumInfo.namespacePath.length > 0) {
+                  const newQualifiedName = createQualifiedName(factory, enumInfo.namespacePath, enumInfo.pascalCaseName);
                   return factory.updatePropertySignature(
                     node,
                     node.modifiers,
                     node.name,
                     node.questionToken,
-                    factory.createTypeReferenceNode(toPascalCase(enumName), undefined)
+                    factory.createTypeReferenceNode(newQualifiedName, undefined)
+                  );
+                } else {
+                  return factory.updatePropertySignature(
+                    node,
+                    node.modifiers,
+                    node.name,
+                    node.questionToken,
+                    factory.createTypeReferenceNode(enumInfo.pascalCaseName, undefined)
                   );
                 }
               }
             }
+          }
+          
+          // Handle type references in other contexts
+          if (ts.isTypeReferenceNode(node) && ts.isQualifiedName(node.typeName)) {
+            const qualifiedName = node.typeName;
+            const fullPath = getFullPathFromQualifiedName(qualifiedName);
+            const enumInfo = enumsByPath.get(fullPath);
             
-            // Handle qualified name references (e.g., Components.Schemas.SubscriptionStatus)
-            if (ts.isTypeReferenceNode(node.type) && ts.isQualifiedName(node.type.typeName)) {
-              const rightName = node.type.typeName.right.text;
+            if (enumInfo) {
+              const needsQualifiedReference = !arraysEqual(enumInfo.namespacePath, currentNamespacePath);
               
-              // If we have a mapping for this enum name, replace the reference with the top-level enum
-              if (enumNameMappings[rightName.toLowerCase()]) {
-                return factory.updatePropertySignature(
-                  node,
-                  node.modifiers,
-                  node.name,
-                  node.questionToken,
-                  factory.createTypeReferenceNode(
-                    enumNameMappings[rightName.toLowerCase()],
-                    undefined
-                  )
-                );
+              if (needsQualifiedReference && enumInfo.namespacePath.length > 0) {
+                const newQualifiedName = createQualifiedName(factory, enumInfo.namespacePath, enumInfo.pascalCaseName);
+                return factory.createTypeReferenceNode(newQualifiedName, undefined);
+              } else {
+                return factory.createTypeReferenceNode(enumInfo.pascalCaseName, undefined);
               }
             }
           }
           
-          // Preserve export keyword in namespaces
-          if (ts.isModuleDeclaration(node) && node.body && ts.isModuleBlock(node.body)) {
-            const visitedStatements = ts.visitNodes(node.body.statements, visit, ts.isStatement);
-            return factory.updateModuleDeclaration(
-              node,
-              node.modifiers,
-              node.name,
-              factory.updateModuleBlock(node.body, visitedStatements)
-            );
-          }
-          
-          return ts.visitEachChild(node, visit, context);
+          return ts.visitEachChild(node, (child) => visit(child, currentNamespacePath), context);
         }
         
-        // Visit all nodes in the source file
+        // Transform the source file
         const transformedSourceFile = ts.visitNode(sourceFile, visit) as ts.SourceFile;
-        
-        // If we found any enums, create a new source file with the enum declarations at the beginning
-        if (enumDeclarations.length > 0) {
-          const newStatements = [...enumDeclarations, ...transformedSourceFile.statements];
-          return factory.updateSourceFile(transformedSourceFile, newStatements);
-        }
         
         return transformedSourceFile;
       };
     };
 }
 
-
 /* UTILS */
-function extractEnumsFromSchema(schema: Schema['content'], path: string): void {
-  if (!schema || typeof schema !== 'object') return;
+function extractSchemaEnums(content: unknown, path: string[]): void {
+  if (!content || typeof content !== 'object' || !('type' in content) || !('enum' in content)) return;
   
-  if (schema.type === 'string' && Array.isArray(schema.enum)) {
-    const name = path.split('/').pop();
-    if (name && !enumDefinitions[name]) {
-      enumDefinitions[name] = schema.enum;
+  // Check if this is an enum definition
+  if (content.type === 'string' && Array.isArray(content.enum)) {
+    // This is a schema-defined enum
+    const enumName = path[path.length - 1];
+    if (enumName) {
+      schemaDefinedEnums.add(enumName);
     }
   }
   
-  for (const key in schema) {
-    extractEnumsFromSchema(schema[key as keyof typeof schema], `${path}/${key}`);
+  // Recursively check nested objects
+  for (const [key, value] of Object.entries(content)) {
+    extractSchemaEnums(value, [...path, key]);
   }
+}
+
+function registerEnum(name: string, values: string[], namespacePath: string[]): void {
+  const valuesKey = JSON.stringify(values.sort());
+  const fullPath = [...namespacePath, name].join('.');
+  const pascalCaseName = toPascalCase(name);
+  
+  // Check if we already have an enum with these exact values
+  const existingEnum = enumsByValues.get(valuesKey);
+  if (existingEnum) {
+    // Use the existing enum's location as the canonical one
+    // But still register this path for reference resolution
+    enumsByPath.set(fullPath, existingEnum);
+    return;
+  }
+  
+  // Create new enum info
+  const enumInfo: EnumInfo = {
+    name,
+    values,
+    namespacePath,
+    pascalCaseName,
+    fullPath
+  };
+  
+  enumsByValues.set(valuesKey, enumInfo);
+  enumsByPath.set(fullPath, enumInfo);
+}
+
+function createQualifiedName(factory: ts.NodeFactory, namespacePath: string[], enumName: string): ts.EntityName {
+  if (namespacePath.length === 0) {
+    return factory.createIdentifier(enumName);
+  }
+  
+  let result: ts.EntityName = factory.createIdentifier(namespacePath[0]);
+  for (let i = 1; i < namespacePath.length; i++) {
+    result = factory.createQualifiedName(result, factory.createIdentifier(namespacePath[i]));
+  }
+  
+  return factory.createQualifiedName(result, factory.createIdentifier(enumName));
+}
+
+function getFullPathFromQualifiedName(qualifiedName: ts.QualifiedName): string {
+  const parts: string[] = [];
+  
+  function collectParts(node: ts.EntityName): void {
+    if (ts.isIdentifier(node)) {
+      parts.unshift(node.text);
+    } else if (ts.isQualifiedName(node)) {
+      parts.unshift(node.right.text);
+      collectParts(node.left);
+    }
+  }
+  
+  collectParts(qualifiedName);
+  return parts.join('.');
+}
+
+function isSchemaDefinedEnum(name: string, _values: string[]): boolean {
+  return schemaDefinedEnums.has(name);
 }
 
 function toPascalCase(str: string): string {
   if (!str) return '';
   
-  // Handle already PascalCased strings (preserve existing casing)
   if (/^[A-Z][a-zA-Z0-9]*$/.test(str)) {
     return str;
   }
@@ -424,13 +482,11 @@ function arraysEqual(a: unknown[], b: unknown[]): boolean {
 function getEnumMember(consistentEnumCasing: EnumCasing | undefined, value: string) {
     let enumKey = value, enumValue = value;
     
-    // Check for spaces or reserved characters in TypeScript enum names
     // eslint-disable-next-line no-useless-escape
     const hasInvalidChars = /[\s&\-+.(){}[\]^%$#@!,;:'\"\/\\<>?=*|~`]/.test(value);
 
     switch (consistentEnumCasing) {
     case 'value':
-      // For 'value' option, keep the original value but handle invalid chars with quotes
       enumKey = hasInvalidChars ? `"${value}"` : value;
       break;
     case 'upper':
