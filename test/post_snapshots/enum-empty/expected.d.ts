@@ -1,8 +1,12 @@
-export type EmptyOption = "" | "not-empty" | "also-not-empty";
+export enum EmptyOption {
+     = "",
+    ALSO_NOT_EMPTY = "ALSO_NOT_EMPTY",
+    NOT_EMPTY = "NOT_EMPTY"
+}
 declare namespace Components {
     namespace Schemas {
         export interface TestResponse {
-            option?: "" | "not-empty" | "also-not-empty";
+            option?: EmptyOption;
         }
     }
 }

@@ -1,8 +1,12 @@
-export type ContentType = "application/json" | "text/plain" | "application/xml";
+export enum ContentType {
+    "application/json" = "application/json",
+    "application/xml" = "application/xml",
+    "text/plain" = "text/plain"
+}
 declare namespace Components {
     namespace Schemas {
         export interface ApiRequest {
-            contentType?: "application/json" | "text/plain" | "application/xml";
+            contentType?: ContentType;
             body?: string;
         }
     }

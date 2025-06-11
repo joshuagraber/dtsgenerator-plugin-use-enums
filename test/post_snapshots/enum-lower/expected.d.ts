@@ -1,8 +1,13 @@
-export type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
+export enum Direction {
+    down = "down",
+    left = "left",
+    right = "right",
+    up = "up"
+}
 declare namespace Components {
     namespace Schemas {
         export interface NavigationRequest {
-            direction?: "UP" | "DOWN" | "LEFT" | "RIGHT";
+            direction?: Direction;
             distance?: number;
         }
     }

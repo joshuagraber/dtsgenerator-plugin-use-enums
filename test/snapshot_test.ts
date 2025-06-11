@@ -119,9 +119,9 @@ describe('PostProcess Snapshot testing', () => {
                 }
 
                 const result = ts.transform(input, [factory]);
-                result.dispose();
                 const printer = ts.createPrinter();
-                const actual = printer.printFile(input);
+                const actual = printer.printFile(result.transformed[0]);
+                result.dispose();
 
                 // When we do `UPDATE_SNAPSHOT=1 npm test`, update snapshot data.
                 if (process.env.UPDATE_SNAPSHOT) {

@@ -1,12 +1,39 @@
 declare namespace Components {
     namespace Schemas {
+        export const enum Status {
+            Active = "Active",
+            Inactive = "Inactive",
+            Pending = "Pending"
+        }
+        export const enum Priority {
+            High = "High",
+            Low = "Low",
+            Medium = "Medium"
+        }
+        export const enum Category {
+            Type one = "Type one",
+            Type three = "Type three",
+            Type two = "Type two"
+        }
         export interface StatusResponse {
-            status?: "active" | "inactive" | "pending";
-            priority?: "low" | "medium" | "high";
-            category?: "type one" | "type two" | "type three";
+            status?: Status;
+            priority?: Priority;
+            category?: Category;
         }
     }
 }
-export type Status = "active" | "inactive" | "pending";
-export type Priority = "low" | "medium" | "high";
-export type Category = "type one" | "type two" | "type three";
+export const enum Status {
+    Active = "Active",
+    Inactive = "Inactive",
+    Pending = "Pending"
+}
+export const enum Priority {
+    High = "High",
+    Low = "Low",
+    Medium = "Medium"
+}
+export const enum Category {
+    Type one = "Type one",
+    Type three = "Type three",
+    Type two = "Type two"
+}
