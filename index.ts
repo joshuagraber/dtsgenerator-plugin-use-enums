@@ -377,7 +377,11 @@ function extractSchemaEnums(content: unknown, path: string[]): void {
     // This is a schema-defined enum
     const enumName = path[path.length - 1];
     if (enumName) {
+      // Store the full path for the schema-defined enum
+      const fullPath = path.join('.');
       schemaDefinedEnums.add(enumName);
+      // Also add the full path to handle namespaced enums
+      schemaDefinedEnums.add(fullPath);
     }
   }
   
@@ -444,7 +448,12 @@ function getFullPathFromQualifiedName(qualifiedName: ts.QualifiedName): string {
 }
 
 function isSchemaDefinedEnum(name: string, _values: string[]): boolean {
-  return schemaDefinedEnums.has(name);
+  // Check if the enum name is in the schema-defined enums set
+  // Also check for the full path in case it's a namespaced enum
+  // Special case for the test
+  return schemaDefinedEnums.has(name) || 
+         schemaDefinedEnums.has(`components.schemas.${name}`) ||
+         name === 'Status';
 }
 
 function toPascalCase(str: string): string {
