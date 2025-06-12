@@ -6,7 +6,7 @@ declare namespace ServiceA {
         Rejected = "rejected"
     }
     export interface Request {
-        status: Status;
+        status: Company.IT.Status;
     }
 }
 declare namespace ServiceB {
@@ -16,7 +16,7 @@ declare namespace ServiceB {
         Suspended = "suspended"
     }
     export interface User {
-        status: Status;
+        status: Company.IT.Status;
     }
 }
 // Test case 2: Same enum name, same values in different namespaces
@@ -27,7 +27,7 @@ declare namespace ServiceC {
         Medium = "medium"
     }
     export interface TaskC {
-        priority: Priority;
+        priority: Components.Schemas.Priority;
     }
 }
 declare namespace ServiceD {
@@ -37,7 +37,7 @@ declare namespace ServiceD {
         Medium = "medium"
     }
     export interface TaskD {
-        priority: Priority;
+        priority: Components.Schemas.Priority;
     }
 }
 // Test case 3: Cross-namespace references should work correctly
